@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Playing with various sources and layers</title>
+    <link rel="stylesheet" href="css/ol.css" type="text/css" />
+    <style>
+    #map{
+      width: 100%;
+      height: 85vh;
+    }
+    #overlay{
+      font-weight:800;
+      color:#001a33;
+      background: powderblue ;
+      opacity:0.6;
+      border-radius:20px;
+      border:1px solid lightsalmon;
+      padding:6px 10px;
+    }
+
+    </style>    
+  </head>
+  <body>
+    <div id="map" class="map"></div>
+    <div id="overlay"></div>
+    <script src="js/ol.js"></script>
+    <script>
+    //衛星地圖
+    var mapQuestAerial = new ol.layer.Tile({
+      source: new ol.source.MapQuest({layer: 'sat'})
+    });
+
+    mapQuestAerial.set('name', 'MapQuest Open Aerial');
+    //美國區碼
+    var simpleWMS = new ol.layer.Image({
+          opacity: 0.6,
+      source: new ol.source.ImageWMS({
+        url: 'http://demo.boundlessgeo.com/geoserver/wms',
+        params: {
+          'LAYERS': 'topp:states'
+        },
+        extent: [-13884991, -7455066, 2870341, 6338219]
+      })
+    });
+    simpleWMS.set('name', 'USA layer from Geoserver WMS demo');
+
+    //街道地圖
+    var stamenLayer = new ol.layer.Tile({
+        source: new ol.source.Stamen({layer: 'toner'}),//不可以偵測到台灣
+        // source: new ol.source.OSM(),//可以偵測到台灣
+        opacity: 0.3,
+        brightness: 0.3
+      });
+    stamenLayer.set('name', 'stamenLayer');
+    
+    var overlay = new ol.Overlay({
+          element: document.getElementById('overlay'),
+          positioning: 'bottom-center'
+        });
+
+    var layers = [mapQuestAerial, stamenLayer, simpleWMS];
+
+    var map = new ol.Map({
+      layers: layers,
+      target: 'map',
+      view: new ol.View({
+        center: ol.proj.transform([-90, 40], 'EPSG:4326', 'EPSG:3857'),
+        zoom: 3
+      })
+    });
+
+    //Generate checkbox from layers array
+    function generate_checkbox(id_checkbox, label_name, html_element) {
+      var checkbox = document.createElement('input');
+      checkbox.type = "checkbox";
+      checkbox.id = id_checkbox;
+
+      var label = document.createElement('label');
+      label.htmlFor = id_checkbox;
+      label.appendChild(document.createTextNode(label_name));
+      html_element.appendChild(checkbox);
+      html_element.appendChild(label);
+    }
+
+    // Loop from the end to get the top layer in first
+    for (var i = layers.length - 1; i >= 0; i--) {
+      var id = layers[i].get('id');
+      var name = layers[i].get('name');
+      generate_checkbox('layer_id_' + i, name, document.body);
+      var visible = new ol.dom.Input(document.getElementById('layer_id_' + i));
+      visible.bindTo('checked', layers[i], 'visible');
+    }
+
+        // register an event handler for the click event        
+        function mouseClick(event){  
+          // extract the spatial coordinate of the click event in map projection units
+
+          var coord = event.coordinate;
+
+          // transform it to decimal degrees
+          var degrees = ol.proj.transform(coord, 'EPSG:3857', 'EPSG:4326');
+          // format a human readable version
+          var hdms = ol.coordinate.toStringHDMS(degrees);
+          // update the overlay element's content
+          var element = overlay.getElement();
+          element.innerHTML = hdms;
+          // position the element (using the coordinate in the map's projection)
+          overlay.setPosition(coord);
+          // and add it to the map
+          map.addOverlay(overlay);
+        }      
+
+        map.on('click',mouseClick);
+    </script>
+  </body>
+</html>
